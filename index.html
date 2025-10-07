@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Emotions Wheel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+        .bg-gradient-header { background-image: linear-gradient(to right, #6366f1, #ec4899); }
+        
+        /* Theme selector in top right */
+        .theme-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        
+        .theme-selector select {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 2px solid #6366f1;
+            background-color: white;
+            color: #4f46e5;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-selector select:hover {
+            background-color: #f0f9ff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(99, 102, 241, 0.2);
+        }
+        
+        .theme-selector select:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        /* Styles for accessible quiz radio buttons */
+        #quiz-options fieldset { border: none; padding: 0; margin: 0; }
+        #quiz-options .quiz-option input[type="radio"] { opacity: 0; position: fixed; width: 0; }
+        #quiz-options .quiz-option label {
+            display: block;
+            padding: 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        #quiz-options .quiz-option label:hover { border-color: #93c5fd; }
+        #quiz-options .quiz-option input[type="radio"]:checked + label {
+            background-color: #dbeafe;
+            border-color: #60a5fa;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-800">
+    
+    <div class="theme-selector">
+        <select id="theme-select">
+            <option value="classic">Classic</option>
+            <option value="vibrant">Vibrant</option>
+            <option value="colorblind">Color Blind</option>
+            <option value="neovintage">Neo Vintage</option>
+        </select>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4 bg-gradient-header bg-clip-text text-transparent">
+                Emotions Wheel
+            </h1>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                Discover and identify your emotions. Toggle between Spin Mode and Quiz Mode to explore.
+            </p>
+        </div>
+
+        <div class="flex justify-center space-x-4 mb-8">
+            <button id="spin-mode-btn" class="py-2 px-6 rounded-lg font-semibold transition-colors">Spin Mode</button>
+            <button id="quiz-mode-btn" class="py-2 px-6 rounded-lg font-semibold transition-colors">Quiz Mode</button>
+        </div>
+
+        <div id="spin-mode" class="flex flex-col items-center space-y-6">
+            <div class="relative">
+                <canvas id="wheel" width="500" height="500"></canvas>
+                <div class="absolute top-[-5px] left-1/2 transform -translate-x-1/2 w-0 h-0 
+                    border-l-[15px] border-l-transparent 
+                    border-r-[15px] border-r-transparent 
+                    border-b-[25px] border-b-gray-800 z-10"></div>
+            </div>
+            <button id="spin-btn" class="bg-indigo-500 text-white py-3 px-8 rounded-lg text-lg font-bold hover:bg-indigo-600 transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">Spin Wheel</button>
+            <div id="spin-result" class="hidden w-full max-w-lg mx-auto space-y-4 p-6 bg-white rounded-lg shadow-md mt-4"></div>
+        </div>
+
+        <div id="quiz-mode" class="hidden w-full max-w-lg mx-auto space-y-4 p-6 bg-white rounded-lg shadow-md">
+            <div class="flex justify-between items-center">
+                <span id="quiz-progress" class="text-sm font-medium text-gray-500"></span>
+                <button id="restart-quiz-btn" class="text-indigo-500 hover:underline font-semibold">Restart</button>
+            </div>
+            <div id="quiz-container">
+                <h2 id="quiz-question" class="text-2xl font-bold text-gray-900"></h2>
+                <div id="quiz-options" class="space-y-3 mt-4"></div>
+                <button id="quiz-next-btn" class="w-full mt-6 bg-indigo-500 text-white py-2 px-4 rounded-lg hover:bg-indigo-600 disabled:opacity-50" disabled>Next</button>
+            </div>
+            <div id="quiz-result" class="hidden space-y-4"></div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- DATA ---
+            const emotionData = [
+                { 
+                    name: 'Happy', 
+                    themes: { 
+                        classic: '#FFD700', 
+                        vibrant: '#fbbf24', 
+                        colorblind: '#DDAA33',
+                        neovintage: '#D4AF37'
+                    }, 
+                    textColor: '#1f2937', 
+                    bgImage: 'attached_assets/stock_images/joyful_happy_celebra_c7a8ccb0.jpg',
+                    subs: ['Joyful', 'Content', 'Excited', 'Grateful', 'Proud', 'Amused', 'Optimistic', 'Serene'] 
+                },
+                { 
+                    name: 'Sad', 
+                    themes: { 
+                        classic: '#4169E1', 
+                        vibrant: '#3b82f6', 
+                        colorblind: '#004488',
+                        neovintage: '#4A5D6C'
+                    }, 
+                    textColor: '#ffffff', 
+                    bgImage: 'attached_assets/stock_images/sad_melancholy_rain__ebe8efd7.jpg',
+                    subs: ['Lonely', 'Depressed', 'Guilty', 'Ashamed', 'Disappointed', 'Hopeless', 'Grieving', 'Regretful'] 
+                },
+                { 
+                    name: 'Angry', 
+                    themes: { 
+                        classic: '#FF4500', 
+                        vibrant: '#ef4444', 
+                        colorblind: '#EE7733',
+                        neovintage: '#8B2635'
+                    }, 
+                    textColor: '#ffffff', 
+                    bgImage: 'attached_assets/stock_images/angry_fire_intense_r_726e6c88.jpg',
+                    subs: ['Frustrated', 'Irritated', 'Enraged', 'Resentful', 'Jealous', 'Bitter', 'Hostile', 'Annoyed'] 
+                },
+                { 
+                    name: 'Fear', 
+                    themes: { 
+                        classic: '#8B4513', 
+                        vibrant: '#a16207', 
+                        colorblind: '#332288',
+                        neovintage: '#2C1810'
+                    }, 
+                    textColor: '#ffffff', 
+                    bgImage: 'attached_assets/stock_images/fear_darkness_stormy_ad4dd4e2.jpg',
+                    subs: ['Anxious', 'Scared', 'Terrified', 'Nervous', 'Insecure', 'Worried', 'Panicked', 'Vulnerable'] 
+                },
+                { 
+                    name: 'Disgust', 
+                    themes: { 
+                        classic: '#228B22', 
+                        vibrant: '#22c55e', 
+                        colorblind: '#009988',
+                        neovintage: '#3B5441'
+                    }, 
+                    textColor: '#ffffff', 
+                    bgImage: 'attached_assets/stock_images/disgust_toxic_green__c473c692.jpg',
+                    subs: ['Repulsed', 'Revulsed', 'Contemptuous', 'Disdainful', 'Offended', 'Nauseated', 'Horrified', 'Averse'] 
+                },
+                { 
+                    name: 'Surprise', 
+                    themes: { 
+                        classic: '#9370DB', 
+                        vibrant: '#a855f7', 
+                        colorblind: '#CC3311',
+                        neovintage: '#7B5E7B'
+                    }, 
+                    textColor: '#ffffff', 
+                    bgImage: 'attached_assets/stock_images/surprise_shock_light_8486a66a.jpg',
+                    subs: ['Shocked', 'Amazed', 'Stunned', 'Astonished', 'Startled', 'Bewildered', 'Confused', 'Disbelieving'] 
+                }
+            ];
+            
+            const emotionBackgrounds = {};
+            let imagesLoaded = 0;
+            const totalImages = emotionData.length;
+            
+            emotionData.forEach(emotion => {
+                const img = new Image();
+                img.src = emotion.bgImage;
+                img.onload = () => {
+                    imagesLoaded++;
+                    if (imagesLoaded === totalImages) {
+                        drawWheel();
+                    }
+                };
+                emotionBackgrounds[emotion.name] = img;
+            });
+
+            const quizData = [
+                { question: "How does your body feel right now?", options: [ { text: "Energetic, light, warm", mapsTo: 'happy' }, { text: "Tense, hot, jaw clenched", mapsTo: 'angry' }, { text: "Heavy, tired, sluggish", mapsTo: 'sad' }, { text: "Racing heart, shaky, cold sweat", mapsTo: 'fear' }] },
+                { question: "What kind of thoughts are filling your mind?", options: [ { text: "Thoughts of injustice or being wronged", mapsTo: 'angry' }, { text: "Something feels wrong, or 'off-putting'", mapsTo: 'disgust' }, { text: "Worrying about what might happen", mapsTo: 'fear' }, { text: "Replaying a sudden, unexpected event", mapsTo: 'surprise' }] },
+                { question: "How do you feel about your surroundings?", options: [ { text: "I want to pull away or reject something", mapsTo: 'disgust' }, { text: "I feel open, appreciative, and engaged", mapsTo: 'happy' }, { text: "I'm on high alert, looking for danger", mapsTo: 'fear' }, { text: "I feel disconnected or withdrawn", mapsTo: 'sad' }] },
+                { question: "What is your primary impulse?", options: [ { text: "To celebrate, share, or connect", mapsTo: 'happy' }, { text: "To pause and try to understand what just happened", mapsTo: 'surprise' }, { text: "To confront or push back against something", mapsTo: 'angry' }, { text: "To retreat, cry, or seek comfort", mapsTo: 'sad' }] }
+            ];
+
+            const emotionDetails = {
+                default: { description: "Explore this feeling.", nextSteps: ["Take a deep breath.", "Consider why you might feel this way.", "Talk to someone you trust."] }
+            };
+
+            // --- STATE ---
+            let currentMode = 'spin';
+            let currentTheme = 'classic';
+            let spinState = { rotation: 0, velocity: 0, isSpinning: false };
+            let quizState = { currentQuestion: 0, answers: {} };
+
+            // --- DOM ELEMENTS ---
+            const spinModeBtn = document.getElementById('spin-mode-btn');
+            const quizModeBtn = document.getElementById('quiz-mode-btn');
+            const spinModeDiv = document.getElementById('spin-mode');
+            const quizModeDiv = document.getElementById('quiz-mode');
+            const themeSelect = document.getElementById('theme-select');
+            const spinBtn = document.getElementById('spin-btn');
+            const canvas = document.getElementById('wheel');
+            const ctx = canvas.getContext('2d');
+            
+            // --- WHEEL SETUP ---
+            const wheelSegments = emotionData.flatMap(cat => cat.subs.map(sub => ({ name: sub, category: cat.name, color: cat.themes[currentTheme], textColor: cat.textColor })));
+            const segmentAngle = 2 * Math.PI / wheelSegments.length;
+            const radius = canvas.width / 2;
+            const textRadius = radius * 0.8;
+
+            // --- MODE SWITCHING ---
+            function setMode(mode) {
+                currentMode = mode;
+                const isActive = 'bg-indigo-500 text-white';
+                const isInactive = 'bg-gray-200 text-gray-700';
+
+                spinModeBtn.className = `py-2 px-6 rounded-lg font-semibold transition-colors ${mode === 'spin' ? isActive : isInactive}`;
+                quizModeBtn.className = `py-2 px-6 rounded-lg font-semibold transition-colors ${mode === 'quiz' ? isActive : isInactive}`;
+
+                spinModeDiv.classList.toggle('hidden', mode !== 'spin');
+                quizModeDiv.classList.toggle('hidden', mode === 'spin');
+
+                if (mode === 'spin') {
+                    resetSpin();
+                } else {
+                    startQuiz();
+                }
+            }
+
+            // --- WHEEL LOGIC ---
+            function drawWheel() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.save();
+                ctx.translate(radius, radius);
+                ctx.rotate(spinState.rotation);
+
+                wheelSegments.forEach((segment, i) => {
+                    const currentAngle = i * segmentAngle;
+                    const emotionCategory = emotionData.find(cat => cat.name === segment.category);
+                    const segmentColor = emotionCategory.themes[currentTheme];
+                    const bgImage = emotionBackgrounds[segment.category];
+                    
+                    // Draw segment
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.arc(0, 0, radius, currentAngle, currentAngle + segmentAngle);
+                    ctx.closePath();
+                    
+                    // Save context for clipping
+                    ctx.save();
+                    ctx.clip();
+                    
+                    // Draw background image if loaded
+                    if (bgImage && bgImage.complete) {
+                        ctx.save();
+                        ctx.rotate(currentAngle + segmentAngle / 2);
+                        const imgSize = radius * 1.5;
+                        ctx.globalAlpha = 0.4;
+                        ctx.drawImage(bgImage, -imgSize/2, -radius, imgSize, radius);
+                        ctx.restore();
+                    }
+                    
+                    // Draw color overlay
+                    ctx.fillStyle = segmentColor;
+                    ctx.globalAlpha = 0.7;
+                    ctx.fill();
+                    ctx.restore();
+                    
+                    // Draw border
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 1;
+                    ctx.stroke();
+
+                    // Draw text
+                    ctx.save();
+                    ctx.rotate(currentAngle + segmentAngle / 2);
+                    ctx.textAlign = 'right';
+                    ctx.fillStyle = segment.textColor;
+                    ctx.font = 'bold 12px Inter';
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                    ctx.shadowBlur = 4;
+                    ctx.fillText(segment.name, textRadius, 5);
+                    ctx.restore();
+                });
+                
+                // Draw center hub
+                ctx.beginPath();
+                ctx.arc(0, 0, 15, 0, 2 * Math.PI);
+                ctx.fillStyle = '#4f46e5';
+                ctx.fill();
+                
+                ctx.restore();
+            }
+
+            function animateSpin() {
+                if (Math.abs(spinState.velocity) < 0.005) {
+                    spinState.velocity = 0;
+                    spinState.isSpinning = false;
+                    spinBtn.disabled = false;
+                    displaySpinResult();
+                    return;
+                }
+                spinState.rotation += spinState.velocity;
+                spinState.velocity *= 0.99; // Friction
+                drawWheel();
+                requestAnimationFrame(animateSpin);
+            }
+
+            function startSpin() {
+                if (spinState.isSpinning) return;
+                spinState.isSpinning = true;
+                spinBtn.disabled = true;
+                document.getElementById('spin-result').classList.add('hidden');
+                spinState.velocity = (Math.random() * 0.2) + 0.2; // Initial speed
+                animateSpin();
+            }
+            
+            function resetSpin() {
+                spinState = { rotation: 0, velocity: 0, isSpinning: false };
+                drawWheel();
+                document.getElementById('spin-result').classList.add('hidden');
+            }
+
+            function displaySpinResult() {
+                const degrees = (spinState.rotation * 180 / Math.PI) % 360;
+                const normalizedAngle = (360 - degrees) % 360; // Adjust for canvas rotation and pointer at top
+                const winningIndex = Math.floor(normalizedAngle / (360 / wheelSegments.length));
+                const emotion = wheelSegments[winningIndex];
+                displayEmotionResult(emotion.name, document.getElementById('spin-result'));
+            }
+
+            // --- QUIZ LOGIC ---
+            function startQuiz() {
+                quizState = { currentQuestion: 0, answers: {} };
+                document.getElementById('quiz-container').classList.remove('hidden');
+                document.getElementById('quiz-result').classList.add('hidden');
+                renderQuestion();
+            }
+
+            function renderQuestion() {
+                const q = quizData[quizState.currentQuestion];
+                document.getElementById('quiz-progress').textContent = `Question ${quizState.currentQuestion + 1} of ${quizData.length}`;
+                document.getElementById('quiz-question').textContent = q.question;
+                const optionsDiv = document.getElementById('quiz-options');
+                optionsDiv.innerHTML = `<fieldset><legend class="sr-only">${q.question}</legend></fieldset>`;
+                const fieldset = optionsDiv.querySelector('fieldset');
+                q.options.forEach((opt, i) => {
+                    fieldset.innerHTML += `
+                        <div class="quiz-option">
+                            <input type="radio" id="q${quizState.currentQuestion}o${i}" name="q${quizState.currentQuestion}" value="${opt.mapsTo}">
+                            <label for="q${quizState.currentQuestion}o${i}">${opt.text}</label>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('quiz-next-btn').disabled = true;
+                document.querySelectorAll(`input[name="q${quizState.currentQuestion}"]`).forEach(radio => {
+                    radio.addEventListener('change', () => document.getElementById('quiz-next-btn').disabled = false);
+                });
+                document.getElementById('quiz-next-btn').textContent = quizState.currentQuestion === quizData.length - 1 ? 'See Results' : 'Next';
+            }
+
+            function nextQuestion() {
+                const selected = document.querySelector(`input[name="q${quizState.currentQuestion}"]:checked`);
+                if (!selected) return;
+                
+                const category = selected.value;
+                quizState.answers[category] = (quizState.answers[category] || 0) + 1;
+
+                if (quizState.currentQuestion < quizData.length - 1) {
+                    quizState.currentQuestion++;
+                    renderQuestion();
+                } else {
+                    displayQuizResult();
+                }
+            }
+
+            function displayQuizResult() {
+                document.getElementById('quiz-container').classList.add('hidden');
+                const resultContainer = document.getElementById('quiz-result');
+                resultContainer.classList.remove('hidden');
+
+                const sorted = Object.entries(quizState.answers).sort(([,a],[,b]) => b-a);
+                const primaryCategory = sorted[0] ? sorted[0][0] : 'happy'; // Default if no answer
+                
+                const categoryData = emotionData.find(cat => cat.name.toLowerCase() === primaryCategory);
+                const randomEmotion = categoryData.subs[Math.floor(Math.random() * categoryData.subs.length)];
+                
+                displayEmotionResult(randomEmotion, resultContainer, `Based on your answers, you might be feeling something related to **${primaryCategory}**.`);
+            }
+
+            // --- RESULT DISPLAY LOGIC ---
+            function displayEmotionResult(emotionName, container, introText = '') {
+                const details = emotionDetails[emotionName.toLowerCase()] || emotionDetails.default;
+                container.innerHTML = `
+                    ${introText ? `<p class="mb-4 text-gray-600">${introText}</p>` : ''}
+                    <h3 class="text-3xl font-bold text-indigo-600">${emotionName}</h3>
+                    <p class="text-gray-700">${details.description}</p>
+                    <div>
+                        <strong class="text-gray-800">Possible Next Steps:</strong>
+                        <ul class="list-disc list-inside mt-2 text-gray-600">
+                            ${details.nextSteps.map(step => `<li>${step}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-4">Disclaimer: This tool is for informational and entertainment purposes only and is not a substitute for professional medical advice.</p>
+                `;
+                container.classList.remove('hidden');
+            }
+
+            // --- EVENT LISTENERS ---
+            spinModeBtn.addEventListener('click', () => setMode('spin'));
+            quizModeBtn.addEventListener('click', () => setMode('quiz'));
+            themeSelect.addEventListener('change', (e) => {
+                currentTheme = e.target.value;
+                drawWheel();
+            });
+            spinBtn.addEventListener('click', startSpin);
+            document.getElementById('quiz-next-btn').addEventListener('click', nextQuestion);
+            document.getElementById('restart-quiz-btn').addEventListener('click', startQuiz);
+
+            // --- INITIALIZATION ---
+            setMode('spin');
+
+        });
+    </script>
+</body>
+</html>
